@@ -13,6 +13,8 @@ var (
 	vpPool = sync.Pool{New: func() interface{} { return make(ValueProperties, 0, 0) }}
 	// avoid returning huge backing arrays from pools; cap threshold
 	poolCapThreshold = 16384 // elements
+	// if unique count estimate exceeds this, fall back to sort-based implementation
+	uniqueFallbackThreshold = 8192
 )
 
 func getPropMap(capacity int) map[string]Property {
@@ -58,13 +60,26 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 	if len(kp) == 0 {
 		return KeyProperties{}
 	}
+	if len(kp) > uniqueFallbackThreshold {
+		m := make(map[string]struct{}, 128)
+		unique := 0
+		for _, p := range kp {
+			if _, ok := m[p.Key]; !ok {
+				m[p.Key] = struct{}{}
+				unique++
+				if unique > uniqueFallbackThreshold {
+					return UniqueKeys(kp, keeplast)
+				}
+			}
+		}
+	}
 	if keeplast {
 		// keep last: record last occurrence in a map
 		last := getPropMap(len(kp))
 		for _, p := range kp {
 			last[p.Key] = p
 		}
-			// get a result slice from pool and ensure capacity
+		// get a result slice from pool and ensure capacity
 		res := kpPool.Get().(KeyProperties)
 		res = res[:0]
 		if cap(res) < len(last) {
@@ -119,12 +134,25 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 	if len(vp) == 0 {
 		return ValueProperties{}
 	}
+	if len(vp) > uniqueFallbackThreshold {
+		m := make(map[string]struct{}, 128)
+		unique := 0
+		for _, p := range vp {
+			if _, ok := m[p.Value]; !ok {
+				m[p.Value] = struct{}{}
+				unique++
+				if unique > uniqueFallbackThreshold {
+					return UniqueValues(vp, keeplast)
+				}
+			}
+		}
+	}
 	if keeplast {
 		last := getPropMap(len(vp))
 		for _, p := range vp {
 			last[p.Value] = p
 		}
-			res := vpPool.Get().(ValueProperties)
+		res := vpPool.Get().(ValueProperties)
 		res = res[:0]
 		if cap(res) < len(last) {
 			res = make(ValueProperties, 0, len(last))
