@@ -135,7 +135,7 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 	if len(vp) == 0 {
 		return ValueProperties{}
 	}
-	if len(vp) > uniqueFallbackThreshold {
+	if len(vp) > FallbackThreshold {
 		m := make(map[string]struct{}, 128)
 		unique := 0
 		for _, p := range vp {
@@ -196,4 +196,10 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 	copy(out, res)
 	vpPool.Put(res)
 	return out
+}
+
+// Short aliases for concise names requested by the user.
+func UniqueMap(kp KeyProperties, keeplast bool) KeyProperties { return UniqueKeysMap(kp, keeplast) }
+func UniqueValueMap(vp ValueProperties, keeplast bool) ValueProperties {
+	return UniqueValuesMap(vp, keeplast)
 }
