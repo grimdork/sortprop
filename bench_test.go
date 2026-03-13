@@ -5,31 +5,41 @@ import (
 	"testing"
 )
 
-func genKP(n int) KeyProperties {
+func genKP(n int, uniqueRatio float64) KeyProperties {
 	kp := make(KeyProperties, 0, n)
+	unique := int(float64(n) * uniqueRatio)
+	if unique < 1 {
+		unique = 1
+	}
 	for i := 0; i < n; i++ {
-		kp = append(kp, Property{Key: fmt.Sprintf("k%06d", i%100), Value: fmt.Sprintf("v%06d", i)})
+		kp = append(kp, Property{Key: fmt.Sprintf("k%06d", i%unique), Value: fmt.Sprintf("v%06d", i)})
 	}
 	return kp
 }
 
-func genVP(n int) ValueProperties {
+func genVP(n int, uniqueRatio float64) ValueProperties {
 	vp := make(ValueProperties, 0, n)
+	unique := int(float64(n) * uniqueRatio)
+	if unique < 1 {
+		unique = 1
+	}
 	for i := 0; i < n; i++ {
-		vp = append(vp, Property{Key: fmt.Sprintf("k%06d", i), Value: fmt.Sprintf("v%06d", i%100)})
+		vp = append(vp, Property{Key: fmt.Sprintf("k%06d", i), Value: fmt.Sprintf("v%06d", i%unique)})
 	}
 	return vp
 }
 
 func BenchmarkUniqueKeys_All(b *testing.B) {
 	for _, n := range []int{1000, 10000} {
-		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
-			kp := genKP(n)
-			b.Run("Sort_first", func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					_ = UniqueKeys(kp, false)
-				}
-			})
+		for _, ur := range []float64{0.01, 0.1, 0.5, 1.0} { // unique ratios
+			label := fmt.Sprintf("n=%d/ur=%.2f", n, ur)
+			b.Run(label, func(b *testing.B) {
+				kp := genKP(n, ur)
+				b.Run("Sort_first", func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						_ = UniqueKeys(kp, false)
+					}
+				})
 			b.Run("Map_first", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					_ = UniqueKeysMap(kp, false)
@@ -62,7 +72,7 @@ func BenchmarkUniqueKeys_All(b *testing.B) {
 func BenchmarkUniqueValues_All(b *testing.B) {
 	for _, n := range []int{1000, 10000} {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
-			vp := genVP(n)
+			vp := genVP(n, ur)
 			b.Run("Sort_first", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					_ = UniqueValues(vp, false)
