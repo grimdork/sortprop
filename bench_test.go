@@ -30,7 +30,7 @@ func genVP(n int, uniqueRatio float64) ValueProperties {
 }
 
 func BenchmarkUniqueKeys_All(b *testing.B) {
-	for _, n := range []int{1000, 10000, 100000} {
+	for _, n := range []int{20, 50, 100, 1000} {
 		for _, ur := range []float64{0.01, 0.1, 0.5, 1.0} { // unique ratios
 			label := fmt.Sprintf("n=%d/ur=%.2f", n, ur)
 			b.Run(label, func(b *testing.B) {
@@ -45,11 +45,6 @@ func BenchmarkUniqueKeys_All(b *testing.B) {
 						_ = UniqueKeysMap(kp, false)
 					}
 				})
-				b.Run("Hybrid_first", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						_ = UniqueKeysHybrid(kp, false)
-					}
-				})
 				b.Run("Sort_last", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						_ = UniqueKeys(kp, true)
@@ -60,18 +55,13 @@ func BenchmarkUniqueKeys_All(b *testing.B) {
 						_ = UniqueKeysMap(kp, true)
 					}
 				})
-				b.Run("Hybrid_last", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						_ = UniqueKeysHybrid(kp, true)
-					}
-				})
 			})
 		}
 	}
 }
 
 func BenchmarkUniqueValues_All(b *testing.B) {
-	for _, n := range []int{1000, 10000, 100000} {
+	for _, n := range []int{20, 50, 100, 1000} {
 		for _, ur := range []float64{0.01, 0.1, 0.5, 1.0} {
 			label := fmt.Sprintf("n=%d/ur=%.2f", n, ur)
 			b.Run(label, func(b *testing.B) {
@@ -86,11 +76,6 @@ func BenchmarkUniqueValues_All(b *testing.B) {
 						_ = UniqueValuesMap(vp, false)
 					}
 				})
-				b.Run("Hybrid_first", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						_ = UniqueValuesHybrid(vp, false)
-					}
-				})
 				b.Run("Sort_last", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						_ = UniqueValues(vp, true)
@@ -99,11 +84,6 @@ func BenchmarkUniqueValues_All(b *testing.B) {
 				b.Run("Map_last", func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						_ = UniqueValuesMap(vp, true)
-					}
-				})
-				b.Run("Hybrid_last", func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						_ = UniqueValuesHybrid(vp, true)
 					}
 				})
 			})
