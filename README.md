@@ -5,6 +5,9 @@ Package for sortable key-value properties, like HTTP headers, with functions to 
 
 ### Key-sortable slices
 
+Note: using sort.Sort on KeyProperties/ValueProperties sorts in-place and mutates the slice. If you need a non-mutating sort, copy the slice before sorting.
+
+
 ```go
 	…
 	kp := sortprop.KeyProperties{
