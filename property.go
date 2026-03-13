@@ -16,44 +16,51 @@ type Property struct {
 
 // UniqueKeys returns a slice with only one instance of each unique-key property.
 // If keeplast is true, the last element of the same key will be kept rather than the first.
-// The list will be sorted by Key.
+// The returned list will be sorted by Key. The input slice is not mutated.
 func UniqueKeys(kp KeyProperties, keeplast bool) KeyProperties {
-	var list KeyProperties
-	sort.Sort(kp)
-	for i := 0; i < len(kp); i++ {
+	// work on a copy so the caller's slice is not mutated
+	copyKP := append(KeyProperties(nil), kp...)
+	sort.Sort(copyKP)
+
+	list := make(KeyProperties, 0, len(copyKP))
+	for i := 0; i < len(copyKP); i++ {
 		if i == 0 {
-			list = append(list, kp[i])
+			list = append(list, copyKP[i])
 			continue
 		}
 
-		if kp[i].Key == kp[i-1].Key {
+		if copyKP[i].Key == copyKP[i-1].Key {
 			if keeplast {
-				list[len(list)-1] = kp[i]
+				list[len(list)-1] = copyKP[i]
 			}
 		} else {
-			list = append(list, kp[i])
+			list = append(list, copyKP[i])
 		}
 	}
 	return list
 }
 
 // UniqueValues returns a slice with only one instance of each unique value-property.
-// The list will be sorted by Value.
+// If keeplast is true, the last element of the same value will be kept rather than the first.
+// The returned list will be sorted by Value. The input slice is not mutated.
 func UniqueValues(vp ValueProperties, keeplast bool) ValueProperties {
-	var list ValueProperties
-	sort.Sort(vp)
-	for i := 0; i < len(vp); i++ {
+	// work on a copy so the caller's slice is not mutated
+	copyVP := append(ValueProperties(nil), vp...)
+	sort.Sort(copyVP)
+
+	list := make(ValueProperties, 0, len(copyVP))
+	for i := 0; i < len(copyVP); i++ {
 		if i == 0 {
-			list = append(list, vp[i])
+			list = append(list, copyVP[i])
 			continue
 		}
 
-		if vp[i].Value == vp[i-1].Value {
+		if copyVP[i].Value == copyVP[i-1].Value {
 			if keeplast {
-				list[len(list)-1] = vp[i]
+				list[len(list)-1] = copyVP[i]
 			}
 		} else {
-			list = append(list, vp[i])
+			list = append(list, copyVP[i])
 		}
 	}
 	return list

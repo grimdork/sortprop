@@ -103,3 +103,43 @@ func TestUniqueValues(t *testing.T) {
 		t.Logf("%s = %s", p.Key, p.Value)
 	}
 }
+
+// New tests to ensure input slices are not mutated by Unique* functions
+func TestUniqueKeysDoesNotMutateInput(t *testing.T) {
+	kp := sortprop.KeyProperties{
+		sortprop.Property{"b", "2"},
+		sortprop.Property{"a", "1"},
+		// intentionally unsorted
+	}
+
+	orig := append(sortprop.KeyProperties(nil), kp...)
+	_ = sortprop.UniqueKeys(kp, false)
+
+	if len(kp) != len(orig) {
+		t.Fatalf("input length changed: got %d want %d", len(kp), len(orig))
+	}
+	for i := range kp {
+		if kp[i] != orig[i] {
+			t.Fatalf("input mutated at index %d: got %+v want %+v", i, kp[i], orig[i])
+		}
+	}
+}
+
+func TestUniqueValuesDoesNotMutateInput(t *testing.T) {
+	vp := sortprop.ValueProperties{
+		sortprop.Property{"b", "2"},
+		sortprop.Property{"a", "1"},
+	}
+
+	orig := append(sortprop.ValueProperties(nil), vp...)
+	_ = sortprop.UniqueValues(vp, false)
+
+	if len(vp) != len(orig) {
+		t.Fatalf("input length changed: got %d want %d", len(vp), len(orig))
+	}
+	for i := range vp {
+		if vp[i] != orig[i] {
+			t.Fatalf("input mutated at index %d: got %+v want %+v", i, vp[i], orig[i])
+		}
+	}
+}
