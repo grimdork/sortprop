@@ -1,7 +1,51 @@
 package sortprop
 
+import "sync"
+
 // Map-based implementations that avoid sorting and preserve original order.
-// Optimized to reduce allocations by pre-sizing maps and result slices.
+// Optimized to reduce allocations by pre-sizing maps and result slices and reusing map objects via sync.Pool.
+
+var (
+	propMapPool = sync.Pool{New: func() any { return make(map[string]Property) }}
+	seenMapPool = sync.Pool{New: func() any { return make(map[string]struct{}) }}
+)
+
+func getPropMap(capacity int) map[string]Property {
+	m := propMapPool.Get().(map[string]Property)
+	for k := range m {
+		delete(m, k)
+	}
+	// Hint capacity by recreating if too small
+	if cap(m) < capacity {
+		return make(map[string]Property, capacity)
+	}
+	return m
+}
+
+func putPropMap(m map[string]Property) {
+	for k := range m {
+		delete(m, k)
+	}
+	propMapPool.Put(m)
+}
+
+func getSeenMap(capacity int) map[string]struct{} {
+	m := seenMapPool.Get().(map[string]struct{})
+	for k := range m {
+		delete(m, k)
+	}
+	if cap(m) < capacity {
+		return make(map[string]struct{}, capacity)
+	}
+	return m
+}
+
+func putSeenMap(m map[string]struct{}) {
+	for k := range m {
+		delete(m, k)
+	}
+	seenMapPool.Put(m)
+}
 
 // UniqueKeysMap returns a slice with only one instance of each unique key.
 // If keeplast is true, the last occurrence is kept; otherwise the first occurrence is kept.
@@ -12,13 +56,13 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 	}
 	if keeplast {
 		// keep last: record last occurrence in a map
-		last := make(map[string]Property, len(kp))
+		last := getPropMap(len(kp))
 		for _, p := range kp {
 			last[p.Key] = p
 		}
 		// preallocate result with exact size
 		res := make(KeyProperties, 0, len(last))
-		seen := make(map[string]struct{}, len(last))
+		seen := getSeenMap(len(last))
 		for _, p := range kp {
 			if _, ok := seen[p.Key]; ok {
 				continue
@@ -26,10 +70,12 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 			res = append(res, last[p.Key])
 			seen[p.Key] = struct{}{}
 		}
+		putPropMap(last)
+		putSeenMap(seen)
 		return res
 	}
 	// keep first: iterate and add first occurrence
-	seen := make(map[string]struct{}, len(kp))
+	seen := getSeenMap(len(kp))
 	res := make(KeyProperties, 0, len(kp))
 	for _, p := range kp {
 		if _, ok := seen[p.Key]; ok {
@@ -38,6 +84,7 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 		seen[p.Key] = struct{}{}
 		res = append(res, p)
 	}
+	putSeenMap(seen)
 	// shrink to fit exact unique count
 	if len(res) != cap(res) {
 		out := make(KeyProperties, len(res))
@@ -55,12 +102,12 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		return ValueProperties{}
 	}
 	if keeplast {
-		last := make(map[string]Property, len(vp))
+		last := getPropMap(len(vp))
 		for _, p := range vp {
 			last[p.Value] = p
 		}
 		res := make(ValueProperties, 0, len(last))
-		seen := make(map[string]struct{}, len(last))
+		seen := getSeenMap(len(last))
 		for _, p := range vp {
 			if _, ok := seen[p.Value]; ok {
 				continue
@@ -68,9 +115,11 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 			res = append(res, last[p.Value])
 			seen[p.Value] = struct{}{}
 		}
+		putPropMap(last)
+		putSeenMap(seen)
 		return res
 	}
-	seen := make(map[string]struct{}, len(vp))
+	seen := getSeenMap(len(vp))
 	res := make(ValueProperties, 0, len(vp))
 	for _, p := range vp {
 		if _, ok := seen[p.Value]; ok {
@@ -79,6 +128,7 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		seen[p.Value] = struct{}{}
 		res = append(res, p)
 	}
+	putSeenMap(seen)
 	if len(res) != cap(res) {
 		out := make(ValueProperties, len(res))
 		copy(out, res)
