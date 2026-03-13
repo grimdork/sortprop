@@ -63,6 +63,20 @@ element is kept. If keeplast is true, the last one encountered is kept.
 
 Benchmarks are provided in bench_test.go. Run them with:
 
-    go test -bench .
+    go test -bench . -benchmem
 
-They measure UniqueKeys/UniqueValues performance for typical input sizes. Adjust parameters in bench_test.go as needed.
+They measure UniqueKeys/UniqueValues performance for typical input sizes and variants.
+
+Recommendations (short)
+
+- Sorted result, low allocations / GC pressure: use UniqueKeys / UniqueValues (sort-based). They return a sorted slice and do not mutate the input.
+- Fast, preserve insertion order: use UniqueKeysMap / UniqueValuesMap (map-based). Faster but higher allocations.
+- Sorted and fast for many-duplicates: use UniqueKeysHybrid / UniqueValuesHybrid (map dedupe then sort unique set).
+
+Pruning suggestion
+
+To keep the API simple, consider exposing only two functions per need:
+- UniqueKeys / UniqueValues (sort-based) — the safe default
+- UniqueKeysFast / UniqueValuesFast (map-based) — the fast insertion-order-preserving variant
+
+Document the Hybrid variant as an optimization available in the codebase for callers who need sorted output with better perf on highly-duplicated inputs.

@@ -6,18 +6,20 @@ import "sync"
 // Optimized to reduce allocations by pre-sizing maps and result slices and reusing map objects via sync.Pool.
 
 var (
-	propMapPool = sync.Pool{New: func() any { return make(map[string]Property) }}
-	seenMapPool = sync.Pool{New: func() any { return make(map[string]struct{}) }}
+	propMapPool = sync.Pool{New: func() interface{} { return make(map[string]Property) }}
+	seenMapPool = sync.Pool{New: func() interface{} { return make(map[string]struct{}) }}
+	// result slice pools to reuse allocations for common sizes
+	kpPool = sync.Pool{New: func() interface{} { return make(KeyProperties, 0, 0) }}
+	vpPool = sync.Pool{New: func() interface{} { return make(ValueProperties, 0, 0) }}
 )
 
 func getPropMap(capacity int) map[string]Property {
+	if capacity > 0 {
+		return make(map[string]Property, capacity)
+	}
 	m := propMapPool.Get().(map[string]Property)
 	for k := range m {
 		delete(m, k)
-	}
-	// Hint capacity by recreating if too small
-	if cap(m) < capacity {
-		return make(map[string]Property, capacity)
 	}
 	return m
 }
@@ -30,12 +32,12 @@ func putPropMap(m map[string]Property) {
 }
 
 func getSeenMap(capacity int) map[string]struct{} {
+	if capacity > 0 {
+		return make(map[string]struct{}, capacity)
+	}
 	m := seenMapPool.Get().(map[string]struct{})
 	for k := range m {
 		delete(m, k)
-	}
-	if cap(m) < capacity {
-		return make(map[string]struct{}, capacity)
 	}
 	return m
 }
@@ -60,8 +62,12 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 		for _, p := range kp {
 			last[p.Key] = p
 		}
-		// preallocate result with exact size
-		res := make(KeyProperties, 0, len(last))
+			// get a result slice from pool and ensure capacity
+		res := kpPool.Get().(KeyProperties)
+		res = res[:0]
+		if cap(res) < len(last) {
+			res = make(KeyProperties, 0, len(last))
+		}
 		seen := getSeenMap(len(last))
 		for _, p := range kp {
 			if _, ok := seen[p.Key]; ok {
@@ -72,11 +78,19 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 		}
 		putPropMap(last)
 		putSeenMap(seen)
-		return res
+		// shrink-to-fit into a fresh slice to avoid retaining oversized backing arrays in pool
+		out := make(KeyProperties, len(res))
+		copy(out, res)
+		kpPool.Put(res)
+		return out
 	}
 	// keep first: iterate and add first occurrence
 	seen := getSeenMap(len(kp))
-	res := make(KeyProperties, 0, len(kp))
+	res := kpPool.Get().(KeyProperties)
+	res = res[:0]
+	if cap(res) < len(kp) {
+		res = make(KeyProperties, 0, len(kp))
+	}
 	for _, p := range kp {
 		if _, ok := seen[p.Key]; ok {
 			continue
@@ -85,13 +99,10 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 		res = append(res, p)
 	}
 	putSeenMap(seen)
-	// shrink to fit exact unique count
-	if len(res) != cap(res) {
-		out := make(KeyProperties, len(res))
-		copy(out, res)
-		return out
-	}
-	return res
+	out := make(KeyProperties, len(res))
+	copy(out, res)
+	kpPool.Put(res)
+	return out
 }
 
 // UniqueValuesMap returns a slice with only one instance of each unique value.
@@ -106,7 +117,11 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		for _, p := range vp {
 			last[p.Value] = p
 		}
-		res := make(ValueProperties, 0, len(last))
+			res := vpPool.Get().(ValueProperties)
+		res = res[:0]
+		if cap(res) < len(last) {
+			res = make(ValueProperties, 0, len(last))
+		}
 		seen := getSeenMap(len(last))
 		for _, p := range vp {
 			if _, ok := seen[p.Value]; ok {
@@ -117,10 +132,17 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		}
 		putPropMap(last)
 		putSeenMap(seen)
-		return res
+		out := make(ValueProperties, len(res))
+		copy(out, res)
+		vpPool.Put(res)
+		return out
 	}
 	seen := getSeenMap(len(vp))
-	res := make(ValueProperties, 0, len(vp))
+	res := vpPool.Get().(ValueProperties)
+	res = res[:0]
+	if cap(res) < len(vp) {
+		res = make(ValueProperties, 0, len(vp))
+	}
 	for _, p := range vp {
 		if _, ok := seen[p.Value]; ok {
 			continue
@@ -129,10 +151,8 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		res = append(res, p)
 	}
 	putSeenMap(seen)
-	if len(res) != cap(res) {
-		out := make(ValueProperties, len(res))
-		copy(out, res)
-		return out
-	}
-	return res
+	out := make(ValueProperties, len(res))
+	copy(out, res)
+	vpPool.Put(res)
+	return out
 }
