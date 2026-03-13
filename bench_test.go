@@ -21,26 +21,42 @@ func genVP(n int) ValueProperties {
 	return vp
 }
 
-func BenchmarkUniqueKeys_Copy(b *testing.B) {
+func BenchmarkUniqueKeys_SortVsMap(b *testing.B) {
 	for _, n := range []int{1000, 10000} {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			kp := genKP(n)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = UniqueKeys(kp, false)
-			}
+			b.Run("Sort", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					_ = UniqueKeys(kp, false)
+				}
+			})
+			b.Run("Map", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					_ = UniqueKeysMap(kp, false)
+				}
+			})
 		})
 	}
 }
 
-func BenchmarkUniqueValues_Copy(b *testing.B) {
+func BenchmarkUniqueValues_SortVsMap(b *testing.B) {
 	for _, n := range []int{1000, 10000} {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vp := genVP(n)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = UniqueValues(vp, false)
-			}
+			b.Run("Sort", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					_ = UniqueValues(vp, false)
+				}
+			})
+			b.Run("Map", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					_ = UniqueValuesMap(vp, false)
+				}
+			})
 		})
 	}
 }
