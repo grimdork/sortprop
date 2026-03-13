@@ -93,5 +93,41 @@ func init() {
 
 Notes
 
-- We removed the Hybrid variant from the top-level API to keep the surface small; hybrid logic can be reintroduced if needed.
+- We removed the Hybrid variant from the top-level API to keep the surface small; hybrid logic has been removed from the README and is not part of the public surface.
 - Benchmarks focus on the common small-N case (20–1,000 properties). Extremely large inputs (100k+) are supported but not recommended unless you tune FallbackThreshold.
+
+Full benchmark summary (representative; run with `go test -bench . -benchmem` on darwin/arm64 Apple M1 Max)
+
+n | uniqueRatio | Sort_first (ns/op, B/op, allocs) | Map_first (ns/op, B/op, allocs)
+---|---:|---:|---:
+20 | 1.00 | 451 ns/op, 1.4 KB/op, 3 allocs/op | 1.12 µs/op, 1.7 KB/op, 6 allocs/op
+50 | 0.10 | 1.75 µs/op, 3.6 KB/op, 3 allocs/op | 1.30 µs/op, 2.1 KB/op, 6 allocs/op
+100 | 0.50 | 4.8 µs/op, 6.9 KB/op, 3 allocs/op | 3.0 µs/op, 5.4 KB/op, 6 allocs/op
+1000 | 1.00 (mostly unique) | 15.8 µs/op, 65.5 KB/op, 3 allocs/op | 42.6 µs/op, 87.9 KB/op, 8 allocs/op
+1000 | 0.01 (many duplicates) | 41.3 µs/op, 65.5 KB/op, 3 allocs/op | 14.3 µs/op, 55.1 KB/op, 8 allocs/op
+
+(Full raw bench output is available by running the benchmarks locally; these representative numbers are from the run used to validate the map-based implementation.)
+
+When to use UniqueValues (concrete examples)
+
+- Inverted-index / tag overview: If you have a list of records where multiple records reference the same tag string (Value), deduping by Value gives a single representative per tag for UI overviews or tag lists.
+
+- Content canonicalization: When different source records (different Keys) point to identical content (Value is a content hash or normalized text), dedupe by Value to keep one canonical record per content blob.
+
+- Sensor/metric grouping: Sensors may report named measurements as Value while keys are sensor IDs. To display one sample per measurement label (e.g., "temperature"), dedupe by Value.
+
+- De-duplicating lookups: If you build a list of external links (Value) collected from many sources (Keys), keeping unique Values prevents repeated downloads or checks.
+
+Example (pseudo-Go):
+
+```go
+// keep one representative per content hash
+vp := sortprop.ValueProperties{
+    {Key: "src1", Value: "sha1:abc"},
+    {Key: "src2", Value: "sha1:abc"},
+    {Key: "src3", Value: "sha1:def"},
+}
+unique := sortprop.UniqueValues(vp, true) // keep last occurrence of each value
+```
+
+These cases are common enough to justify keeping UniqueValues as a first-class API: it communicates intent clearly and avoids forcing callers to use more general (and more complex) selector-based APIs.
