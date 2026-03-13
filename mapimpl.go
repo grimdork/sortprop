@@ -11,6 +11,8 @@ var (
 	// result slice pools to reuse allocations for common sizes
 	kpPool = sync.Pool{New: func() interface{} { return make(KeyProperties, 0, 0) }}
 	vpPool = sync.Pool{New: func() interface{} { return make(ValueProperties, 0, 0) }}
+	// avoid returning huge backing arrays from pools; cap threshold
+	poolCapThreshold = 16384 // elements
 )
 
 func getPropMap(capacity int) map[string]Property {
@@ -78,10 +80,15 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 		}
 		putPropMap(last)
 		putSeenMap(seen)
-		// shrink-to-fit into a fresh slice to avoid retaining oversized backing arrays in pool
+		// if result backing cap is reasonable, return it directly; otherwise copy to shrink-to-fit
+		if cap(res) <= poolCapThreshold {
+			out := res[:len(res)]
+			kpPool.Put(res[:0])
+			return out
+		}
 		out := make(KeyProperties, len(res))
 		copy(out, res)
-		kpPool.Put(res)
+		kpPool.Put(res[:0])
 		return out
 	}
 	// keep first: iterate and add first occurrence
@@ -132,9 +139,14 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 		}
 		putPropMap(last)
 		putSeenMap(seen)
+		if cap(res) <= poolCapThreshold {
+			out := res[:len(res)]
+			vpPool.Put(res[:0])
+			return out
+		}
 		out := make(ValueProperties, len(res))
 		copy(out, res)
-		vpPool.Put(res)
+		vpPool.Put(res[:0])
 		return out
 	}
 	seen := getSeenMap(len(vp))
