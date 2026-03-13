@@ -14,7 +14,8 @@ var (
 	// avoid returning huge backing arrays from pools; cap threshold
 	poolCapThreshold = 16384 // elements
 	// if unique count estimate exceeds this, fall back to sort-based implementation
-	uniqueFallbackThreshold = 8192
+	// Exported as FallbackThreshold so callers can tune at runtime.
+	FallbackThreshold = 8192
 )
 
 func getPropMap(capacity int) map[string]Property {
@@ -60,14 +61,14 @@ func UniqueKeysMap(kp KeyProperties, keeplast bool) KeyProperties {
 	if len(kp) == 0 {
 		return KeyProperties{}
 	}
-	if len(kp) > uniqueFallbackThreshold {
+	if len(kp) > FallbackThreshold {
 		m := make(map[string]struct{}, 128)
 		unique := 0
 		for _, p := range kp {
 			if _, ok := m[p.Key]; !ok {
 				m[p.Key] = struct{}{}
 				unique++
-				if unique > uniqueFallbackThreshold {
+				if unique > FallbackThreshold {
 					return UniqueKeys(kp, keeplast)
 				}
 			}
@@ -141,7 +142,7 @@ func UniqueValuesMap(vp ValueProperties, keeplast bool) ValueProperties {
 			if _, ok := m[p.Value]; !ok {
 				m[p.Value] = struct{}{}
 				unique++
-				if unique > uniqueFallbackThreshold {
+				if unique > FallbackThreshold {
 					return UniqueValues(vp, keeplast)
 				}
 			}
