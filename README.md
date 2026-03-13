@@ -70,13 +70,28 @@ They measure UniqueKeys/UniqueValues performance for typical input sizes and var
 Recommendations (short)
 
 - Sorted result, low allocations / GC pressure: use UniqueKeys / UniqueValues (sort-based). They return a sorted slice and do not mutate the input.
-- Fast, preserve insertion order: use UniqueKeysMap / UniqueValuesMap (map-based). Faster but higher allocations.
-- Sorted and fast for many-duplicates: use UniqueKeysHybrid / UniqueValuesHybrid (map dedupe then sort unique set).
+- Fast, preserve insertion order: use UniqueKeysMap / UniqueValuesMap (map-based). Use the short aliases UniqueMap / UniqueValueMap if you prefer concise names. Faster but higher allocations; map-based variants fall back to the sort-based implementation when the estimated unique count exceeds FallbackThreshold.
 
 Pruning suggestion
 
-To keep the API simple, consider exposing only two functions per need:
+To keep the API simple, expose two functions per need:
 - UniqueKeys / UniqueValues (sort-based) — the safe default
-- UniqueKeysFast / UniqueValuesFast (map-based) — the fast insertion-order-preserving variant
+- UniqueKeysMap / UniqueValuesMap (map-based) — the fast insertion-order-preserving variant (short aliases: UniqueMap / UniqueValueMap)
 
-Document the Hybrid variant as an optimization available in the codebase for callers who need sorted output with better perf on highly-duplicated inputs.
+Fallback behavior
+
+- FallbackThreshold (package-level, default 8192) controls when the map-based impl will fall back to the sort-based implementation to avoid excessive memory/GC pressure on large unique sets.
+- You can tune it at runtime:
+
+```go
+import "github.com/grimdork/sortprop"
+
+func init() {
+    sortprop.FallbackThreshold = 4096 // smaller → safer memory footprint
+}
+```
+
+Notes
+
+- We removed the Hybrid variant from the top-level API to keep the surface small; hybrid logic can be reintroduced if needed.
+- Benchmarks focus on the common small-N case (20–1,000 properties). Extremely large inputs (100k+) are supported but not recommended unless you tune FallbackThreshold.
